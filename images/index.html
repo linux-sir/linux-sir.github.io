@@ -290,6 +290,13 @@
           
   <div class="comments" id="comments">
     
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    
   </div>
 
 
@@ -337,7 +344,7 @@
             
             
             <div class="site-state-item site-state-categories">
-              <a href="/Linux加密/index.html">
+              <a href="/CPU管理/index.html">
                 <span class="site-state-item-count">3</span>
                 <span class="site-state-item-name">分类</span>
               </a>
@@ -506,28 +513,41 @@
 
   
 
+    <script type="text/javascript">
+      var disqus_shortname = 'linuxsir';
+      var disqus_identifier = 'images/index.html';
+
+      var disqus_title = "images";
 
 
+      function run_disqus_script(disqus_script) {
+        var dsq = document.createElement('script');
+        dsq.type = 'text/javascript';
+        dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      }
 
-	
+      run_disqus_script('count.js');
 
+      
+        var disqus_config = function () {
+            this.page.url = disqus_url;
+            this.page.identifier = disqus_identifier;
+            this.page.title = disqus_title;
+        };
+        run_disqus_script('embed.js');
+      
 
-
-
-
+    </script>
   
 
 
 
 
 
-  
 
 
-
-
-
-  
 
 
 
