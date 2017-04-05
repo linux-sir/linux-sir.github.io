@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://linuxsir.top/"/>
-  <updated>2016-01-31T12:46:53.884Z</updated>
+  <updated>2017-04-05T14:01:31.926Z</updated>
   <id>http://linuxsir.top/</id>
   
   <author>
@@ -14,6 +14,133 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Linux内核状态监控机制---核心转储</title>
+    <link href="http://linuxsir.top/2016/05/05/Linux%E5%86%85%E6%A0%B8%E7%8A%B6%E6%80%81%E7%9B%91%E6%8E%A7%E6%9C%BA%E5%88%B6-%E6%A0%B8%E5%BF%83%E8%BD%AC%E5%82%A8/"/>
+    <id>http://linuxsir.top/2016/05/05/Linux内核状态监控机制-核心转储/</id>
+    <published>2016-05-05T13:54:54.000Z</published>
+    <updated>2017-04-05T14:01:31.926Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="面向的读者"><a href="#面向的读者" class="headerlink" title="面向的读者"></a>面向的读者</h1><p>此文章面向基于Linux平台的开发人员，特别是内核开发。通过此文章可以全面理解Core Dump机制及应用，帮助大家解决实际中遇到的疑难问题。</p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>经过多年的开源运动，众多的业界精英通力合作，Linux内核已经变得异常复杂，在运行状态的内核更是“深不可测”，众多进程运行过程中里面充满了竞争、协作、中断等不可预料的过程，面对如此繁杂的场景，若想对其中一两个进程进行普通形式的调试（如单步调试），则更是难上加难。<br>对于开发者而言，内核发生错误，就不应该继续运行，而应该马上停止，以便将问题及时暴露出来，以免发生更严重的后果。内核发生错误就让内核崩溃，机器重启等，但由于动态存储器的电气特性，重启机器后，数据就会丢失，发生错误的现场就会遭到破坏。为了解决这种难题，及时保存“事故现场”，提出了核心转储（Core Dump）机制。</p>
+<h1 id="基本概念"><a href="#基本概念" class="headerlink" title="基本概念"></a>基本概念</h1><h2 id="core"><a href="#core" class="headerlink" title="core"></a>core</h2><p>core 就是沿用的是早期电脑磁芯内存中的表达。仔细查core过程中，还发现这个词还有一些故事。<br>在半导体作为电脑内存材料之前，电脑内存使用的是 磁芯内存（Magnetic Core Memory），是利用线圈当作内存的材料（发明者为王安），线圈就叫作 core ，用线圈做的内存就叫作 core memory。如今 ，半导体工业澎勃发展，已经没有人用 core memory 了，不过，在许多情况下， 人们还是把记忆体叫作 core 。 </p>
+<p>Core Dump 中的 Core 沿用了磁芯内存的 Core 表达。图为磁芯内存的一个单元，来自 Wikipedia.<br><img src="http://on44nkxjb.bkt.clouddn.com/17-4-5/94108072-file_1491385350572_1144e.jpg" alt="image"></p>
+<h2 id="dump"><a href="#dump" class="headerlink" title="dump"></a>dump</h2><p>Dump 指的是拷贝一种存储介质中的部分内容到另一个存储介质，或者将内容打印、显示或者其它输出设备。dump 出来的内容是格式化的，可以使用一些工具来解析它。</p>
+<h2 id="Core-Dump"><a href="#Core-Dump" class="headerlink" title="Core Dump"></a>Core Dump</h2><p>现代操作系统中，用 Core Dump 表示当程序异常终止或崩溃或收到某些信号时，将进程此时的运行状态数据（包括内存，寄存器中的内容）拷贝到磁盘文件中存储，以文件形式存在，以方便编程人员调试。</p>
+<h3 id="特点"><a href="#特点" class="headerlink" title="特点"></a>特点</h3><ul>
+<li>在进程异常时触发</li>
+<li>保存进程的运行状态，便于事后分析还原现场，进一步找到问题</li>
+<li>核心转储机制可以灵活地满足各种保存现场的需求</li>
+<li>转储文件保存的仅仅是某一时刻的状态</li>
+</ul>
+<h3 id="core-dump-是一个监控机制"><a href="#core-dump-是一个监控机制" class="headerlink" title="core dump 是一个监控机制"></a>core dump 是一个监控机制</h3><p>更像是智慧城市中的摄像头，稍有不同的是Core Dump是在特定条件下触发，变得更智能，目的是一致的，还原现场，寻找线索，最终解决问题。</p>
+<h1 id="Core-Dump实现原理"><a href="#Core-Dump实现原理" class="headerlink" title="Core Dump实现原理"></a>Core Dump实现原理</h1><h2 id="机制–-如何生成"><a href="#机制–-如何生成" class="headerlink" title="机制– 如何生成"></a>机制– 如何生成</h2><p>Core Dump得以实现要归功于信号处理机制，借助特定的信号，触发转储过程。</p>
+<p>生成Core Dump文件本质就是<br>将运行状态的数据（内存数据，寄存器等）输出到文件中。</p>
+<h2 id="策略–-何时生成"><a href="#策略–-何时生成" class="headerlink" title="策略– 何时生成"></a>策略– 何时生成</h2><p>有了上述机制，就可以针对特定信号，即需要生成Core Dump的特殊时刻进行处理。</p>
+<h3 id="默认处理方式为Core-Dump的信号"><a href="#默认处理方式为Core-Dump的信号" class="headerlink" title="默认处理方式为Core Dump的信号"></a>默认处理方式为Core Dump的信号</h3><table>
+<thead>
+<tr>
+<th>Signal</th>
+<th>Action</th>
+<th>Comment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SIGQUIT</td>
+<td>Core</td>
+<td>Quit from keyboard</td>
+</tr>
+<tr>
+<td>SIGILL</td>
+<td>Core</td>
+<td>Illegal Instruction</td>
+</tr>
+<tr>
+<td>SIGABRT</td>
+<td>Core</td>
+<td>Abort signal from abort</td>
+</tr>
+<tr>
+<td>SIGSEGV</td>
+<td>Core</td>
+<td>Invalid memory reference</td>
+</tr>
+<tr>
+<td>SIGTRAP</td>
+<td>Core</td>
+<td>Trace/breakpoint trap</td>
+</tr>
+</tbody>
+</table>
+<p>注：</p>
+<blockquote>
+<p>详细的信号处理请参考<a href="http://man7.org/linux/man-pages/man7/signal.7.html" target="_blank" rel="external">这里</a></p>
+</blockquote>
+<h1 id="核心转储的目标"><a href="#核心转储的目标" class="headerlink" title="核心转储的目标"></a>核心转储的目标</h1><p>Core Dump的目标就是为了获取运行状态，便于事后分析。因为在现实中有很多实际情况并不是那么方便获取某时刻的运行环境，例如嵌入式设备中一个偶发问题的排查，按普通调试的方式，并不是最有效的了。</p>
+<h1 id="核心转储基本操作"><a href="#核心转储基本操作" class="headerlink" title="核心转储基本操作"></a>核心转储基本操作</h1><h2 id="配置"><a href="#配置" class="headerlink" title="配置"></a>配置</h2><h3 id="查看当前Core-Dump功能状态"><a href="#查看当前Core-Dump功能状态" class="headerlink" title="查看当前Core Dump功能状态"></a>查看当前Core Dump功能状态</h3><p>命令：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">ulimit -c</div></pre></td></tr></table></figure>
+<blockquote>
+<p>若返回0，代表core dump 机制是关闭的。<br>若是其它值就代表此功能是开启的。</p>
+</blockquote>
+<h3 id="启用核心转储"><a href="#启用核心转储" class="headerlink" title="启用核心转储"></a>启用核心转储</h3><h4 id="临时开启"><a href="#临时开启" class="headerlink" title="临时开启"></a>临时开启</h4><p>命令：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">ulimit -c unlimited</div></pre></td></tr></table></figure></p>
+<p>注：</p>
+<blockquote>
+<p>1) 以上命令代表开启core dump功能，且不限制转储文件的大小。<br>2) 若需要限制转储文件的大小，就将unlimited换成要限制的大小（单位是blocks,即KB）<br>3) 此种方式只对当前的终端环境有效</p>
+</blockquote>
+<h4 id="永久开启"><a href="#永久开启" class="headerlink" title="永久开启"></a>永久开启</h4><p>修改文件 /etc/security/limits.conf文件 ：<br>添加一行：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"># /etc/security/limits.conf</div><div class="line">#</div><div class="line">#Each line describes a limit for a user in the form:</div><div class="line">#</div><div class="line">#&lt;domain&gt;   &lt;type&gt;   &lt;item&gt;   &lt;value&gt;</div><div class="line">    *          soft     core   unlimited</div></pre></td></tr></table></figure>
+<h3 id="在专用目录生成转储文件"><a href="#在专用目录生成转储文件" class="headerlink" title="在专用目录生成转储文件"></a>在专用目录生成转储文件</h3><p>1) 默认生成的 core 文件保存在可执行文件所在的目录下，文件名就为 core。</p>
+<p>2) 通过修改 /proc/sys/kernel/core_uses_pid 文件可以让生成 core 文件名是否自动加上 pid 号。<br>例如 echo 1 &gt; /proc/sys/kernel/core_uses_pid ，生成的 core 文件名将会变成 core.pid，其中 pid 表示该进程的 PID。</p>
+<p>3) 还可以通过修改 /proc/sys/kernel/core_pattern 来控制生成 core 文件保存的位置以及文件名格式。<br>例如可以用 echo “/tmp/corefile-%e-%p-%t” &gt; /proc/sys/kernel/core_pattern 设置生成的 core 文件保存在 “/tmp/corefile” 目录下，文件名格式为 “core-命令名-pid-时间戳</p>
+<h3 id="通过信号触发core-dump过程"><a href="#通过信号触发core-dump过程" class="headerlink" title="通过信号触发core dump过程"></a>通过信号触发core dump过程</h3><h4 id="示例1：段错误触发"><a href="#示例1：段错误触发" class="headerlink" title="示例1：段错误触发"></a>示例1：段错误触发</h4><p>代码文件：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">#include &lt;stdio.h&gt;</div><div class="line">int func(int *p)</div><div class="line">&#123;</div><div class="line">    int y = *p;</div><div class="line">    return y;</div><div class="line">&#125;</div><div class="line">int main()</div><div class="line">&#123;</div><div class="line">    int *p = NULL;</div><div class="line">    return func(p);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>注：<br>1). 很明显，上述是典型的使用非法指针，此严重错误会触发core dump<br>2). 进程发生段错误其实就是非法使用内存，这时会收到SIGSEGV信号（segmentationviolation 段违例的缩写）</p>
+<p>触发Core Dump：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">[root@localhost dump_test]# gcc -o test test.c -g</div><div class="line">[root@localhost dump_test]# ls -l</div><div class="line">\u603b\u7528\u91cf 16</div><div class="line">-rwxr-xr-x. 1 root root 9656 4\u6708   5 19:28 test</div><div class="line">-rw-r--r--. 1 root root  124 4\u6708   5 19:28 test.c</div><div class="line">[root@localhost dump_test]# ls</div><div class="line">test  test.c</div><div class="line">[root@localhost dump_test]# ./test </div><div class="line">\u6bb5\u9519\u8bef(\u5410\u6838)</div><div class="line">[root@localhost dump_test]# ls</div><div class="line">core.29306  test  test.c</div></pre></td></tr></table></figure></p>
+<p>可以看到默认情况下，在进程的当前目录下生成了转储文件core.29306 (其中29306是刚才进程的PID)。</p>
+<p>注：常见引起段错误的非法操作有：</p>
+<ul>
+<li>数组越界访问</li>
+<li>访问空指针</li>
+<li>栈溢出</li>
+<li>修改只读内存</li>
+</ul>
+<h4 id="示例2-：-使用其它信号触发"><a href="#示例2-：-使用其它信号触发" class="headerlink" title="示例2 ： 使用其它信号触发"></a>示例2 ： 使用其它信号触发</h4><p>通过ctrl + \ 组合键来终止一个进程，其实是发送SIGQUIT信号，此信号默认处理方式就是触发Core Dump</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">[root@localhost sig_test]# ls</div><div class="line">[root@localhost sig_test]# sleep 10</div><div class="line">^\\u9000\u51fa(\u5410\u6838)</div><div class="line">[root@localhost sig_test]# ls</div><div class="line">core.30778</div></pre></td></tr></table></figure>
+<p>注： </p>
+<blockquote>
+<p>向一个进程发送一个信号，还可以通过kill命令，它甚至可以使一个正常的进程Down掉并触发Core Dump。</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">kill -s SIGSEGV pid</div></pre></td></tr></table></figure>
+<h1 id="应用场景"><a href="#应用场景" class="headerlink" title="应用场景"></a>应用场景</h1><h2 id="1-调试"><a href="#1-调试" class="headerlink" title="1.调试"></a>1.调试</h2><p>这里以上面示例1产生的转储文件为例，简单说明一下，如何用GDB调试</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div></pre></td><td class="code"><pre><div class="line">[root@localhost dump_test]# gdb test core.29306 </div><div class="line">GNU gdb (GDB) Red Hat Enterprise Linux 7.6.1-94.el7</div><div class="line">Copyright (C) 2013 Free Software Foundation, Inc.</div><div class="line">License GPLv3+: GNU GPL version 3 or later &lt;http://gnu.org/licenses/gpl.html&gt;</div><div class="line">This is free software: you are free to change and redistribute it.</div><div class="line">There is NO WARRANTY, to the extent permitted by law.  Type &quot;show copying&quot;</div><div class="line">and &quot;show warranty&quot; for details.</div><div class="line">This GDB was configured as &quot;x86_64-redhat-linux-gnu&quot;.</div><div class="line">For bug reporting instructions, please see:</div><div class="line">&lt;http://www.gnu.org/software/gdb/bugs/&gt;...</div><div class="line">Reading symbols from /root/workspace/dump_test/test...done.</div><div class="line">[New LWP 29306]</div><div class="line">Core was generated by `./test&apos;.</div><div class="line">Program terminated with signal 11, Segmentation fault.</div><div class="line">#0  0x00000000004004f9 in func (p=0x0) at test.c:4</div><div class="line">4	    int y = *p;</div><div class="line">Missing separate debuginfos, use: debuginfo-install glibc-2.17-157.el7.x86_64</div><div class="line">(gdb) where</div><div class="line">#0  0x00000000004004f9 in func (p=0x0) at test.c:4</div><div class="line">#1  0x000000000040051f in main () at test.c:10</div><div class="line">(gdb) info frame</div><div class="line">Stack level 0, frame at 0x7ffd8e052410:</div><div class="line"> rip = 0x4004f9 in func (test.c:4); saved rip 0x40051f</div><div class="line"> called by frame at 0x7ffd8e052430</div><div class="line"> source language c.</div><div class="line"> Arglist at 0x7ffd8e052400, args: p=0x0</div><div class="line"> Locals at 0x7ffd8e052400, Previous frame&apos;s sp is 0x7ffd8e052410</div><div class="line"> Saved registers:</div><div class="line">  rbp at 0x7ffd8e052400, rip at 0x7ffd8e052408</div><div class="line">(gdb) quit</div></pre></td></tr></table></figure>
+<p>注：这里就可以使用GDB的命令来分析当时出错的事故现场了。</p>
+<h2 id="2-排查段错误的神器"><a href="#2-排查段错误的神器" class="headerlink" title="2.排查段错误的神器"></a>2.排查段错误的神器</h2><p>段错误是最常见的软件错误，具体实例参见上面调试实例。</p>
+<h2 id="3-内存取证"><a href="#3-内存取证" class="headerlink" title="3.内存取证"></a>3.内存取证</h2><p>计算机取证是一个重要的应用领域，相关的工具也有很多。详细可参考<a href="https://www.ibm.com/developerworks/cn/linux/1511_cyq_tool/" target="_blank" rel="external">这里</a></p>
+<p>Core Dump的本质是获取内存和寄存器状态数据，最常见的目的就是调试程序，排查问题，有时并不是因错误引起，而是因内存取证的原因，主动触发Core Dump 。</p>
+<p>参考：</p>
+<blockquote>
+<p><a href="http://blog.csdn.net/hust_wusen/article/details/8776116" target="_blank" rel="external">http://blog.csdn.net/hust_wusen/article/details/8776116</a><br><a href="http://www.cnblogs.com/hazir/p/linxu_core_dump.html" target="_blank" rel="external">http://www.cnblogs.com/hazir/p/linxu_core_dump.html</a></p>
+</blockquote>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h1 id=&quot;面向的读者&quot;&gt;&lt;a href=&quot;#面向的读者&quot; class=&quot;headerlink&quot; title=&quot;面向的读者&quot;&gt;&lt;/a&gt;面向的读者&lt;/h1&gt;&lt;p&gt;此文章面向基于Linux平台的开发人员，特别是内核开发。通过此文章可以全面理解Core Dump机制及应用，帮助大家
+    
+    </summary>
+    
+      <category term="调试工具" scheme="http://linuxsir.top/categories/%E8%B0%83%E8%AF%95%E5%B7%A5%E5%85%B7/"/>
+    
+    
+      <category term="核心转储" scheme="http://linuxsir.top/tags/%E6%A0%B8%E5%BF%83%E8%BD%AC%E5%82%A8/"/>
+    
+      <category term="内核调试" scheme="http://linuxsir.top/tags/%E5%86%85%E6%A0%B8%E8%B0%83%E8%AF%95/"/>
+    
+      <category term="Linux" scheme="http://linuxsir.top/tags/Linux/"/>
+    
+  </entry>
   
   <entry>
     <title>多角度看TCP/IP协议栈--时间角度</title>
