@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://linuxsir.top/"/>
-  <updated>2017-04-05T14:01:31.926Z</updated>
+  <updated>2017-04-06T12:53:11.147Z</updated>
   <id>http://linuxsir.top/</id>
   
   <author>
@@ -14,6 +14,184 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Linux系统的救生工具--SysRq键</title>
+    <link href="http://linuxsir.top/2016/07/06/Linux%E7%B3%BB%E7%BB%9F%E7%9A%84%E6%95%91%E7%94%9F%E5%B7%A5%E5%85%B7-SysRq%E9%94%AE/"/>
+    <id>http://linuxsir.top/2016/07/06/Linux系统的救生工具-SysRq键/</id>
+    <published>2016-07-06T12:41:11.000Z</published>
+    <updated>2017-04-06T12:53:11.147Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="面向的读者"><a href="#面向的读者" class="headerlink" title="面向的读者"></a>面向的读者</h1><p>此文面向基于Linux平台的开发人员，全面了解SysRq的特殊作用及应用场景，例如，在系统卡死之时，能试着用sysrq键来救场。</p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>虽然Linux以稳定而雄居服务器市场，但对于不断发现的Linux来说，难免还会出现卡死或死机的囧态，在这个危机时刻，使用一般的指令大法已经不管用了，因为它已经不听指令了（你通过Shell已经没有能力给它发送指令了），此时，就需要sysrq魔法键来救场了。</p>
+<p>SysRq更像系统的救生工具，在危难时刻，通过它能保存现场数据，做一些必要的保护措施等，便于下一次更好地”重生”。</p>
+<h1 id="SysRq的开关配置"><a href="#SysRq的开关配置" class="headerlink" title="SysRq的开关配置"></a>SysRq的开关配置</h1><p>SysRq 的开关共有两部分，一个是在内核配置中，另一个就是用户空间配置文件的设置</p>
+<h2 id="1-让内核支持"><a href="#1-让内核支持" class="headerlink" title="1.让内核支持"></a>1.让内核支持</h2><p>此功能毕竟是在”最危难的”时刻，为sysrq开通”特殊通道”,让内核能按指令做一些必要的动作，如保存缓存中的数据，以确保数据的一致性，这个对于文件系统操作来说非常重要，特别是对于数据中心服务器来说。</p>
+<h3 id="打开内核配置项"><a href="#打开内核配置项" class="headerlink" title="打开内核配置项"></a>打开内核配置项</h3><blockquote>
+<p>CONFIG_MAGIC_SYSRQ=y</p>
+</blockquote>
+<p>可以通过下面命令来查看当前系统是否打开此功能</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">grep “ CONFIG_MAGIC_SYSRQ ” /boot/config-`uname – r`</div></pre></td></tr></table></figure>
+<p>注：</p>
+<blockquote>
+<p>此配置项是在内核生成之初就需要设置好，才能使内核支持此特性。如同提前给内核打好招呼了。<br>当今绝大多数发行版均默认已经启用。</p>
+</blockquote>
+<h2 id="2-系统中开关"><a href="#2-系统中开关" class="headerlink" title="2.系统中开关"></a>2.系统中开关</h2><p>内核为用户空间提供了此项功能的配置项，对应的文件是</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">/proc/sys/kernel/sysrq</div></pre></td></tr></table></figure>
+<p>一般通过直接修改此文件内容即可，在CentOS系统上，还可以通过sysctl命令来指定：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"># sysctl -w kernel.sysrq=1 </div><div class="line"> kernel.sysrq = 1 </div><div class="line"> # cat /proc/sys/kernel/sysrq </div><div class="line"> 1</div></pre></td></tr></table></figure>
+<p>注：</p>
+<blockquote>
+<p>上面指令只对当前终端环境有效，若需要在重启后仍有效，就需要将” kernel.sysrq = 1 ”设置到 /etc/sysctl.conf 中</p>
+</blockquote>
+<p>该文件内容最典型的值是0和1，0代表禁用此功能，1代表启用此功能，且接受所有sysrq指令，其不同的功能对应的值如下：</p>
+<ul>
+<li>2 - enable control of console logging level</li>
+<li>4 - enable control of keyboard (SAK, unraw)</li>
+<li>8 - enable debugging dumps of processes etc.</li>
+<li>16 - enable sync command</li>
+<li>32 - enable remount read-only</li>
+<li>64 - enable signalling of processes (term, kill, oom-kill)</li>
+<li>128 - allow reboot/poweroff</li>
+<li>256 - allow nicing of all RT tasks</li>
+</ul>
+<p>同时，此文件也接受其它值，即代表只启用部分功能，并以几项指令和的形式设置此文件内容。例如：</p>
+<p>在CentOS 7 上执行：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">[root@localhost ~]# cat /proc/sys/kernel/sysrq </div><div class="line">16</div></pre></td></tr></table></figure>
+<p>则说明在此系统上只启用了sync command功能</p>
+<p>在Ubuntu版本上执行：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">[root@localhost ~]# cat /proc/sys/kernel/sysrq </div><div class="line">176</div></pre></td></tr></table></figure></p>
+<p>176则说明启用了下面几项功能：</p>
+<ul>
+<li>128 - allow reboot/poweroff</li>
+<li>32 - enable remount read-only</li>
+<li>16 - enable sync command</li>
+</ul>
+<h1 id="SysRq的指令"><a href="#SysRq的指令" class="headerlink" title="SysRq的指令"></a>SysRq的指令</h1><p>sysrq不仅仅是用来保存现场或安全重启机器用的，其功能也很强大的，例如：</p>
+<ul>
+<li><p>‘b’     - Will immediately reboot the system without syncing or unmounting  your disks.</p>
+</li>
+<li><p>‘c’    - Will perform a system crash by a NULL pointer dereference. A crashdump will be taken if configured.</p>
+</li>
+<li><p>‘d’    - Shows all locks that are held.</p>
+</li>
+<li><p>‘e’     - Send a SIGTERM to all processes, except for init.</p>
+</li>
+<li><p>‘f’    - Will call oom_kill to kill a memory hog process.</p>
+</li>
+<li><p>‘g’    - Used by kgdb (kernel debugger)</p>
+</li>
+<li><p>‘h’     - Will display help (actually any other key than those listed  here will display help. but ‘h’ is easy to remember :-)</p>
+</li>
+<li><p>‘i’     - Send a SIGKILL to all processes, except for init.</p>
+</li>
+<li><p>‘j’     - Forcibly “Just thaw it” - filesystems frozen by the FIFREEZE ioctl.</p>
+</li>
+<li><p>‘k’     - Secure Access Key (SAK) Kills all programs on the current virtual  console. NOTE: See important comments below in SAK section.</p>
+</li>
+<li><p>‘l’     - Shows a stack backtrace for all active CPUs.</p>
+</li>
+<li><p>‘m’     - Will dump current memory info to your console.</p>
+</li>
+<li><p>‘n’    - Used to make RT tasks nice-able</p>
+</li>
+<li><p>‘o’     - Will shut your system off (if configured and supported).</p>
+</li>
+<li><p>‘p’     - Will dump the current registers and flags to your console.</p>
+</li>
+<li><p>‘q’     - Will dump per CPU lists of all armed hrtimers (but NOT regular timer_list timers) and detailed information about all clockevent devices.</p>
+</li>
+<li><p>‘r’     - Turns off keyboard raw mode and sets it to XLATE.</p>
+</li>
+<li><p>‘s’     - Will attempt to sync all mounted filesystems.</p>
+</li>
+<li><p>‘t’     - Will dump a list of current tasks and their information to your console.</p>
+</li>
+<li><p>‘u’     - Will attempt to remount all mounted filesystems read-only.</p>
+</li>
+<li><p>‘v’    - Forcefully restores framebuffer console</p>
+</li>
+<li><p>‘v’    - Causes ETM buffer dump [ARM-specific]</p>
+</li>
+<li><p>‘w’    - Dumps tasks that are in uninterruptable (blocked) state.</p>
+</li>
+<li><p>‘x’    - Used by xmon interface on ppc/powerpc platforms. Show global PMU Registers on sparc64.</p>
+</li>
+<li><p>‘y’    - Show global CPU Registers [SPARC-64 specific]</p>
+</li>
+<li><p>‘z’    - Dump the ftrace buffer</p>
+</li>
+<li><p>‘0’-‘9’ - Sets the console log level, controlling which kernel messages  will be printed to your console. (‘0’, for example would make it so that only emergency messages like PANICs or OOPSes would  make it to your console.)</p>
+</li>
+</ul>
+<h1 id="SysRq的使用"><a href="#SysRq的使用" class="headerlink" title="SysRq的使用"></a>SysRq的使用</h1><h2 id="SysRq指令的执行"><a href="#SysRq指令的执行" class="headerlink" title="SysRq指令的执行"></a>SysRq指令的执行</h2><h3 id="第一种方式：键盘发送指令"><a href="#第一种方式：键盘发送指令" class="headerlink" title="第一种方式：键盘发送指令"></a>第一种方式：键盘发送指令</h3><p>使用SysRq的组合键是Alt + SysRq键（其中SysRq键一般是与PrintScreen是同一个键），同时按下这两个键，然后再按指令键（参见上面）即可。<br>注：</p>
+<blockquote>
+<p>通过键盘发送指令的好处就是在系统失去响应时，键盘是可以直接使用的。</p>
+</blockquote>
+<h3 id="第二种方式：通过-etc-sysrq-trigger"><a href="#第二种方式：通过-etc-sysrq-trigger" class="headerlink" title="第二种方式：通过/etc/sysrq-trigger"></a>第二种方式：通过/etc/sysrq-trigger</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">echo &apos;b&apos; &gt; /etc/sysrq-trigger</div></pre></td></tr></table></figure>
+<p>注：</p>
+<blockquote>
+<p>此种方式前提是还可以使用Shell，一般是图形界面失去响应，但可以SSH登录，使用Shell将指令写到sysrq-trigger里</p>
+</blockquote>
+<h1 id="SysRq的原理"><a href="#SysRq的原理" class="headerlink" title="SysRq的原理"></a>SysRq的原理</h1><h2 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h2><p> Sysrq实现的基本原理为：在键盘或串口驱动中(如果是/proc接口方式，则直接定义/proc的相关写入接口即可)，对按键进行判断过滤，然后根据不同的按键进行相应的处理。普通键盘和串口的流程不尽相同，主要差别在键盘和串口驱动的具体实现上，总体流程一致。</p>
+<p>对于普通键盘来说 ，其底层的处理(从硬件中断到键盘驱动)过程依赖于内核中的输入(input)子系统。键盘处理的大致流程如下：<br>    1）键盘中断调用中断服务程序<br>    2）键盘中断服务程序调用输入子系统<br>    3）输入子系统调用键盘设备对应的键盘事件处理器<br>    4）键盘事件处理器完成键码的转换分类工作，根据按键类型的不同，执行不同的操作。对于输入类按键，先将按键值存放到临时缓冲区，激活临时缓冲区的工作队列，然后结束。对于控制类按键，激活对应此次控制操作的工作队列，然后结束。<br>    5）系统在适当的时机调度工作队列执行，完成剩下的操作<br>    而Sysrq魔术键的处理比较特殊，在内核主分支的代码中，在上述步骤4中的键盘事件处理器中进行相应的处理，不依赖于工作队列，相当于直接在硬件中断中处理。而在3.10内核版本的分支代码中，处理流程不太一样，其合入了相应的补丁，使sysrq的处理剥离出来，放在input子系统进行处理，而脱离了键盘事件的处理流程，其还是在中断上下文中处理的，不依赖于工作队列等。主要是通过注册input_handler实现，具体见后面的代码分析。<br>    另一方面，对于串口设备来说，其sysrq的处理流程根据各串口驱动的实现而稍有不同，但基本都是直接在硬件中断中直接处理的。<br>    所以，总的来说，sysrq魔术键基本都在中断上下文中处理，优先级很高，能在关键时刻发挥重要作用。</p>
+<h2 id="代码分析"><a href="#代码分析" class="headerlink" title="代码分析"></a>代码分析</h2><h3 id="基本数据结构"><a href="#基本数据结构" class="headerlink" title="基本数据结构"></a>基本数据结构</h3><p> Sysrq功能使用结构体sysrq_key_op定义了一个键盘键码所对应的行为，</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">struct sysrq_key_op &#123;</div><div class="line">    void (*handler)(int);</div><div class="line">    char *help_msg;</div><div class="line">    char *action_msg;</div><div class="line">    int enable_mask;</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<p>注：</p>
+<blockquote>
+<ul>
+<li>handler表示相应键码所对应的处理函数；</li>
+<li>action_msg是执行处理函数前打印的信息；</li>
+<li>help_msg指相应键码的帮助信息；</li>
+<li>enable_mask指该功能是否打开，仅限于键盘输入方式。</li>
+</ul>
+</blockquote>
+<p> 另外，sysrq还定义了一个静态全局数组sysrq_key_table，共有36个元素，其中0～9用于命令字0~9，10到36用于命令字a~z。当从/proc/得到输入的命令字后，可以根据这个规则计算出他在sysrq_key_table中的index，然后判断对应handler是否为空，如果不为空的话，则调用handler函数处理。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div></pre></td><td class="code"><pre><div class="line">static struct sysrq_key_op *sysrq_key_table[36] = &#123;</div><div class="line">    &amp;sysrq_loglevel_op,        /* 0 */</div><div class="line">    &amp;sysrq_loglevel_op,        /* 1 */</div><div class="line">    &amp;sysrq_loglevel_op,        /* 2 */</div><div class="line">    &amp;sysrq_loglevel_op,        /* 3 */</div><div class="line">    &amp;sysrq_loglevel_op,        /* 4 */</div><div class="line">    &amp;sysrq_loglevel_op,        /* 5 */</div><div class="line">    &amp;sysrq_loglevel_op,        /* 6 */</div><div class="line">    &amp;sysrq_loglevel_op,        /* 7 */</div><div class="line">    &amp;sysrq_loglevel_op,        /* 8 */</div><div class="line">    &amp;sysrq_loglevel_op,        /* 9 */</div><div class="line">    /*</div><div class="line">     * a: Don‘t use for system provided sysrqs, it is handled specially on</div><div class="line">     * sparc and will never arrive.</div><div class="line">     */</div><div class="line">    NULL,                /* a */</div><div class="line">    &amp;sysrq_reboot_op,        /* b */</div><div class="line">    &amp;sysrq_crash_op,        /* c &amp; ibm_emac driver debug */</div><div class="line">    &amp;sysrq_showlocks_op,        /* d */</div><div class="line">    &amp;sysrq_term_op,            /* e */</div><div class="line">    &amp;sysrq_moom_op,            /* f */</div><div class="line">    /* g: May be registered for the kernel debugger */</div><div class="line">    NULL,                /* g */</div><div class="line">    NULL,                /* h - reserved for help */</div><div class="line">    &amp;sysrq_kill_op,            /* i */</div><div class="line">#ifdef CONFIG_BLOCK</div><div class="line">    &amp;sysrq_thaw_op,            /* j */</div><div class="line">#else</div><div class="line">    NULL,                /* j */</div><div class="line">#endif</div><div class="line">    &amp;sysrq_SAK_op,            /* k */</div><div class="line">#ifdef CONFIG_SMP</div><div class="line">    &amp;sysrq_showallcpus_op,        /* l */</div><div class="line">#else</div><div class="line">    NULL,                /* l */</div><div class="line">#endif</div><div class="line">    &amp;sysrq_showmem_op,        /* m */</div><div class="line">    &amp;sysrq_unrt_op,            /* n */</div><div class="line">    /* o: This will often be registered as ‘Off‘ at init time */</div><div class="line">    NULL,                /* o */</div><div class="line">    &amp;sysrq_showregs_op,        /* p */</div><div class="line">    &amp;sysrq_show_timers_op,        /* q */</div><div class="line">    &amp;sysrq_unraw_op,        /* r */</div><div class="line">    &amp;sysrq_sync_op,            /* s */</div><div class="line">    &amp;sysrq_showstate_op,        /* t */</div><div class="line">    &amp;sysrq_mountro_op,        /* u */</div><div class="line">    /* v: May be registered for frame buffer console restore */</div><div class="line">    NULL,                /* v */</div><div class="line">    &amp;sysrq_showstate_blocked_op,    /* w */</div><div class="line">    /* x: May be registered on ppc/powerpc for xmon */</div><div class="line">    /* x: May be registered on sparc64 for global PMU dump */</div><div class="line">    NULL,                /* x */</div><div class="line">    /* y: May be registered on sparc64 for global register dump */</div><div class="line">    NULL,                /* y */</div><div class="line">    &amp;sysrq_ftrace_dump_op,        /* z */</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<p>如之前所说，3.10版本内核代码中使用了input_handler来实现Sysrq魔术键的单独处理。<br>相应的input_handler定义：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">static struct input_handler sysrq_handler = &#123;</div><div class="line">    .filter        = sysrq_filter,/*相应的filter处理函数，在input子系统中调用，其中调用了Sysrq的处理函数*/</div><div class="line">    .connect    = sysrq_connect,</div><div class="line">    .disconnect    = sysrq_disconnect,</div><div class="line">    .name        = “sysrq”,</div><div class="line">    .id_table    = sysrq_ids,</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<p>注册input_handler，函数调用流程：sysrq_init()–&gt;sysrq_register_handler()–&gt;input_register_handler()</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div></pre></td><td class="code"><pre><div class="line">static int __init sysrq_init(void)</div><div class="line">&#123;</div><div class="line"> sysrq_init_procfs();</div><div class="line"> if (sysrq_on())</div><div class="line">  sysrq_register_handler();</div><div class="line"> return 0;</div><div class="line">&#125;</div><div class="line">static inline void sysrq_register_handler(void)</div><div class="line">&#123;</div><div class="line"> unsigned short key;</div><div class="line"> int error;</div><div class="line"> int i;</div><div class="line"> for (i = 0; i &lt; ARRAY_SIZE(sysrq_reset_seq); i++) &#123;</div><div class="line">  key = platform_sysrq_reset_seq[i];</div><div class="line">  if (key == KEY_RESERVED || key &gt; KEY_MAX)</div><div class="line">   break;</div><div class="line">  sysrq_reset_seq[sysrq_reset_seq_len++] = key;</div><div class="line"> &#125;</div><div class="line"> error = input_register_handler(&amp;sysrq_handler);</div><div class="line"> if (error)</div><div class="line">  pr_err(“Failed to register input handler, error %d”, error);</div><div class="line"> else</div><div class="line">  sysrq_handler_registered = true;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>Sysrq魔术键处理代码流程：<br>atkbd_interrupt()  //键盘中断ISR<br>    input_event() //输入子系统相关处理<br>        input_handle_event()<br>            input_pass_values()<br>                input_to_handler()<br>                    handler-&gt;filter() //sysrq预先注册好的handler(sysrq_handler)的filter接口(sysrq_filter)<br>                        sysrq_filter()<br>                            sysrq_handle_keypress()<br>                                <strong>handle_sysrq()  //sysrq魔术键具体处理<br>最终在</strong>handle_sysrq()函数中完成Sysrq魔术键的具体处理。</p>
+<p>键盘其它按键的处理<br>键盘其它按键的处理也是通过注册相应的input_handler(kbd_handler)来实现的，相应的event接口kbd_event()也在input子系统中调用：<br>/<em>键盘按键相应的input_handler</em>/</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">static struct input_handler kbd_handler = &#123;</div><div class="line">    .event        = kbd_event,</div><div class="line">    .match        = kbd_match,</div><div class="line">    .connect    = kbd_connect,</div><div class="line">    .disconnect    = kbd_disconnect,</div><div class="line">    .start        = kbd_start,</div><div class="line">    .name        = “kbd”,</div><div class="line">    .id_table    = kbd_ids,</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<p>kbd_handler注册：kbd_init()–&gt;input_register_handler()</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line">int __init kbd_init(void)</div><div class="line">&#123;</div><div class="line">    int i;</div><div class="line">    int error;</div><div class="line">    for (i = 0; i &lt; MAX_NR_CONSOLES; i++) &#123;</div><div class="line">        kbd_table[i].ledflagstate = kbd_defleds();</div><div class="line">        kbd_table[i].default_ledflagstate = kbd_defleds();</div><div class="line">        kbd_table[i].ledmode = LED_SHOW_FLAGS;</div><div class="line">        kbd_table[i].lockstate = KBD_DEFLOCK;</div><div class="line">        kbd_table[i].slockstate = 0;</div><div class="line">        kbd_table[i].modeflags = KBD_DEFMODE;</div><div class="line">        kbd_table[i].kbdmode = default_utf8 ? VC_UNICODE : VC_XLATE;</div><div class="line">    &#125;</div><div class="line">    error = input_register_handler(&amp;kbd_handler);</div><div class="line">    if (error)</div><div class="line">        return error;</div><div class="line">    tasklet_enable(&amp;keyboard_tasklet);</div><div class="line">    tasklet_schedule(&amp;keyboard_tasklet);</div><div class="line">    return 0;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>键盘其它按键的处理代码流程：<br>atkbd_interrupt()  //键盘中断ISR<br> input_event() //输入子系统相关处理<br> input_handle_event()<br> input_pass_values()<br> input_to_handler()<br> handler-&gt;events()  //键盘初始化是预先注册好的handler(kbd_handler)的event接口（kbd_event)<br> kbd_event()<br>   kbd_keycode()<br>   put_queue()<br>tty_insert_flip_char()  //将键盘键值对应的编码数据写入缓冲区<br>  tty_schedule_flip()  //激活工作队列处理，处理函数为flush_to_ldisc</p>
+<p>最终在kbd_keycode()函数进行相应的键码处理，主要完成键码的转换分类工作，根据按键类型的不同，执行不同的操作。对于输入类按键，先将按键值存放到临时缓冲区，激活临时缓冲区的工作队列，然后结束。对于控制类按键，激活对应此次控制操作 的工作队列，然后结束。</p>
+<p>通过/proc接口触发Sysrq魔术键的主要函数流程(write_sysrq_trigger()为/proc/sysrq-trigger接口的write接口)：  </p>
+<p>write_sysrq_trigger()<br>    __handle_sysrq()</p>
+<p>串口驱动(以8250串口为例)中对Sysrq魔术键的支持：<br>按照sysrq的设计，通过标准串口链接，按下break键后5秒内，再按住command字符，会触发command对应的sysrq流程。<br>相关的处理流程如下(从串口驱动的接收函数serial8250_rx_chars()开始，此函数在中断上下文中执行):</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">serial8250_rx_chars()</div><div class="line">     /*</div><div class="line">      * 判断是否按下了break键，用于判断Sysrq。当按住break键时，在uart_handle_break中判断port-&gt;sysrq是否为0，如果为0，</div><div class="line">      * 则将port-&gt;sysrq置为5秒后的jiffies数。</div><div class="line">      */</div><div class="line">    uart_handle_break()</div><div class="line">        /*</div><div class="line">         * 对于每一个接收的字符，都会调用uart_handle_sysrq_char。如果当前jiffies数值比port-&gt;sysrq小，</div><div class="line">         * 则说明当前字符是在按住了break后5秒内输入的，因此调用handle_sysrq处理该命令。</div><div class="line">         */</div><div class="line">        uart_handle_sysrq_char()</div></pre></td></tr></table></figure>
+<h1 id="应用场景"><a href="#应用场景" class="headerlink" title="应用场景"></a>应用场景</h1><p>SysRq键可以应对下面几种情况：</p>
+<ul>
+<li>使用SSH登录没有响应</li>
+<li>用户界面卡死</li>
+<li>系统挂死（调度异常，负荷过重，死锁等）</li>
+</ul>
+<p>此种情况下，就可以试着通过SysRq键来对系统进行必要的抢救。</p>
+<h3 id="典型场景1"><a href="#典型场景1" class="headerlink" title="典型场景1"></a>典型场景1</h3><p>系统进入了挂死状态(如调度出现异常、或系统负荷过重），但仍能响应中断，此时可以通过Sysrq魔术键(c)手工触发panic，结合kdump，就能收集到vmcore信息，用于问题的后续分析定位，非常有用。</p>
+<h3 id="典型场景2"><a href="#典型场景2" class="headerlink" title="典型场景2"></a>典型场景2</h3><p>当系统中某进程出现挂死(可能是D状态，或是死锁)，此时需要确认该进程具体挂在什么地方，可以使用Sysrq魔术键(t)打印出系统中所有进程的堆栈信息。</p>
+<h3 id="典型场景3"><a href="#典型场景3" class="headerlink" title="典型场景3"></a>典型场景3</h3><p>当系统出现反应迟钝、交互困难时，难以通过shell或终端交互获取到有用信息，此时可以使用Sysrq魔术键(m,p)打印出系统中内存使用的详细信息和CPU运行上下文信息等。</p>
+<p>参考：</p>
+<blockquote>
+<p><a href="http://www.linuxdiyf.com/linux/6210.html" target="_blank" rel="external">http://www.linuxdiyf.com/linux/6210.html</a><br><a href="https://www.ibm.com/developerworks/cn/linux/l-cn-sysrq/" target="_blank" rel="external">https://www.ibm.com/developerworks/cn/linux/l-cn-sysrq/</a><br><a href="http://www.cnblogs.com/eksay/p/sysrq_linux.html" target="_blank" rel="external">http://www.cnblogs.com/eksay/p/sysrq_linux.html</a></p>
+</blockquote>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h1 id=&quot;面向的读者&quot;&gt;&lt;a href=&quot;#面向的读者&quot; class=&quot;headerlink&quot; title=&quot;面向的读者&quot;&gt;&lt;/a&gt;面向的读者&lt;/h1&gt;&lt;p&gt;此文面向基于Linux平台的开发人员，全面了解SysRq的特殊作用及应用场景，例如，在系统卡死之时，能试着用sysr
+    
+    </summary>
+    
+      <category term="调试工具" scheme="http://linuxsir.top/categories/%E8%B0%83%E8%AF%95%E5%B7%A5%E5%85%B7/"/>
+    
+    
+      <category term="SysRq" scheme="http://linuxsir.top/tags/SysRq/"/>
+    
+      <category term="Linux内核" scheme="http://linuxsir.top/tags/Linux%E5%86%85%E6%A0%B8/"/>
+    
+  </entry>
   
   <entry>
     <title>Linux内核状态监控机制---核心转储</title>
