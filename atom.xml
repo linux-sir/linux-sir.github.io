@@ -199,7 +199,7 @@
     <link href="http://linuxsir.top/2016/05/05/Linux%E5%86%85%E6%A0%B8%E7%8A%B6%E6%80%81%E7%9B%91%E6%8E%A7%E6%9C%BA%E5%88%B6-%E6%A0%B8%E5%BF%83%E8%BD%AC%E5%82%A8/"/>
     <id>http://linuxsir.top/2016/05/05/Linux内核状态监控机制-核心转储/</id>
     <published>2016-05-05T13:54:54.000Z</published>
-    <updated>2017-04-10T12:53:46.622Z</updated>
+    <updated>2017-04-10T12:53:46.623Z</updated>
     
     <content type="html"><![CDATA[<h1 id="面向的读者"><a href="#面向的读者" class="headerlink" title="面向的读者"></a>面向的读者</h1><p>此文章面向基于Linux平台的开发人员，特别是内核开发。通过此文章可以全面理解Core Dump机制及应用，帮助大家解决实际中遇到的疑难问题。</p>
 <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>经过多年的开源运动，众多的业界精英通力合作，Linux内核已经变得异常复杂，在运行状态的内核更是“深不可测”，众多进程运行过程中里面充满了竞争、协作、中断等不可预料的过程，面对如此繁杂的场景，若想对其中一两个进程进行普通形式的调试（如单步调试），则更是难上加难。<br>对于开发者而言，内核发生错误，就不应该继续运行，而应该马上停止，以便将问题及时暴露出来，以免发生更严重的后果。内核发生错误就让内核崩溃，机器重启等，但由于动态存储器的电气特性，重启机器后，数据就会丢失，发生错误的现场就会遭到破坏。为了解决这种难题，及时保存“事故现场”，提出了核心转储（Core Dump）机制。</p>
@@ -383,7 +383,7 @@
     <link href="http://linuxsir.top/2016/03/01/%E7%A8%8B%E5%BA%8F%E8%B7%9F%E8%B8%AA%E5%99%A8-strace/"/>
     <id>http://linuxsir.top/2016/03/01/程序跟踪器-strace/</id>
     <published>2016-03-01T13:39:31.000Z</published>
-    <updated>2017-04-01T23:09:43.713Z</updated>
+    <updated>2017-04-01T23:09:43.714Z</updated>
     
     <content type="html"><![CDATA[<h1 id="面向的读者"><a href="#面向的读者" class="headerlink" title="面向的读者"></a>面向的读者</h1><p>此篇面向经常需要解决Linux平台上程序的疑难杂症的读者，通过此篇可以掌握strace的常见用法，全面了解strace的特点，以备不时之需。</p>
 <h1 id="strace简介"><a href="#strace简介" class="headerlink" title="strace简介"></a>strace简介</h1><p>原装的介绍是“strace – trace system calls and signals”</p>
@@ -496,7 +496,7 @@
     <link href="http://linuxsir.top/2016/01/19/about/"/>
     <id>http://linuxsir.top/2016/01/19/about/</id>
     <published>2016-01-19T11:19:20.000Z</published>
-    <updated>2017-04-09T10:25:44.125Z</updated>
+    <updated>2017-04-09T10:25:44.126Z</updated>
     
     <content type="html"><![CDATA[<p><img src="http://on44nkxjb.bkt.clouddn.com/17-4-7/75648830-file_1491530145271_e710.png" alt="image"></p>
 <h1 id="自我简介"><a href="#自我简介" class="headerlink" title="自我简介"></a>自我简介</h1><p>从业多年的码农一枚，在网络上ID为linuxsir , 对Linux系统颇有感情，以Linux君为挚友，相伴十年有余，很了解Linux君的品性，注定它会成为我一生的伙伴，相信它也会给我带来美好的未来！<br>致力于从茫茫知识海洋里，组建自己的知识体系，能够不断冲破繁杂的现实问题，达到成功的彼岸！</p>
